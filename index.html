@@ -36,10 +36,11 @@
     overscroll-behavior: none;
   }
 
-  /* Первый экран занимает ровно весь экран: история начинается только после прокрутки. */
+  /* Первый экран занимает ровно весь экран: история начинается только после прокрутки.
+     Не 100svh: в iOS-приложении с иконки он короче экрана на верхнюю safe-area (812 против 874). */
   .screen {
     min-height: 100vh;
-    min-height: 100svh;
+    min-height: 100dvh;
     padding: env(safe-area-inset-top) 0 calc(env(safe-area-inset-bottom) + 10px);
     display: flex;
     flex-direction: column;
