@@ -17,23 +17,30 @@
     --red: #ef4444;
     --text: #f4f4f5;
     --muted: #71717a;
+    --line: #1c1c1f;
     --accent: var(--green);
   }
   body.red { --accent: var(--red); }
 
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body { height: 100%; margin: 0; }
+  html { height: 100%; }
   body {
+    min-height: 100%;
+    margin: 0;
     background: var(--bg);
     color: var(--text);
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Rounded", system-ui, sans-serif;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
     padding: env(safe-area-inset-top) 24px env(safe-area-inset-bottom);
     user-select: none;
     -webkit-user-select: none;
     overscroll-behavior: none;
+  }
+
+  .screen {
+    min-height: calc(100svh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
   }
 
   .top {
@@ -78,7 +85,7 @@
   .btn:active { transform: scale(.94); }
 
   .bottom {
-    margin-bottom: 34px;
+    margin-bottom: 18px;
     text-align: center;
   }
   .timer {
@@ -105,32 +112,122 @@
     text-underline-offset: 3px;
   }
   .undo[hidden] { display: inline-block; visibility: hidden; }
+  .more {
+    margin-bottom: 14px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  .history {
+    width: 100%;
+    max-width: 420px;
+    margin: 0 auto;
+    padding-bottom: 28px;
+  }
+  .history-note {
+    margin: 0;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .day {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin: 22px 0 4px;
+    font-size: 13px;
+    color: var(--muted);
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+  .empty {
+    margin: 22px 0;
+    font-size: 15px;
+    color: var(--muted);
+  }
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line);
+    font-variant-numeric: tabular-nums;
+  }
+  .dot {
+    flex: none;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--muted);
+  }
+  .time { font-size: 20px; font-weight: 600; }
+  .gap { margin-left: auto; font-size: 15px; color: var(--muted); }
+  .row.ok .dot { background: var(--green); }
+  .row.ok .time, .row.ok .gap { color: var(--green); }
+  .row.fast .dot { background: var(--red); }
+  .row.fast .time, .row.fast .gap { color: var(--red); }
+  .del {
+    background: none;
+    border: 0;
+    color: var(--muted);
+    font: inherit;
+    font-size: 22px;
+    line-height: 1;
+    padding: 6px 8px;
+  }
+
+  .reset {
+    display: block;
+    margin: 28px auto 0;
+    background: none;
+    border: 0;
+    color: var(--muted);
+    font: inherit;
+    font-size: 12px;
+    padding: 8px 12px;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    opacity: .7;
+  }
 </style>
 </head>
 <body class="green">
-  <div class="top">
-    <div class="count" id="count">0</div>
-    <div class="count-label">сегодня</div>
+  <div class="screen">
+    <div class="top">
+      <div class="count" id="count">0</div>
+      <div class="count-label">сегодня</div>
+    </div>
+
+    <div class="main">
+      <button class="btn" id="btn">Покурил</button>
+    </div>
+
+    <div class="bottom">
+      <div class="timer" id="timer">--:--</div>
+      <div class="timer-label">часов : минут назад</div>
+      <button class="undo" id="undo" hidden>отменить последнюю</button>
+    </div>
+
+    <div class="more">история ↓</div>
   </div>
 
-  <div class="main">
-    <button class="btn" id="btn">Покурил</button>
-  </div>
-
-  <div class="bottom">
-    <div class="timer" id="timer">--:--</div>
-    <div class="timer-label">часов : минут назад</div>
-    <button class="undo" id="undo" hidden>отменить последнюю</button>
+  <div class="history">
+    <p class="history-note">Сегодня и вчера. Пауза считается от предыдущей сигареты: <span style="color:var(--green)">2 ч и больше</span>, <span style="color:var(--red)">меньше 2 ч</span>. Новый день начинается в 5:00.</p>
+    <div id="history"></div>
+    <button class="reset" id="reset">обновить приложение</button>
   </div>
 
 <script>
   const LIMIT_MS = 2 * 60 * 60 * 1000;
+  const DAY_START_HOUR = 5;
+  const DAY_SHIFT_MS = DAY_START_HOUR * 60 * 60 * 1000;
   const KEY = 'cig-log';
 
   const $count = document.getElementById('count');
   const $timer = document.getElementById('timer');
   const $btn = document.getElementById('btn');
   const $undo = document.getElementById('undo');
+  const $history = document.getElementById('history');
+  const $reset = document.getElementById('reset');
 
   const load = () => {
     try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch { return []; }
@@ -140,17 +237,89 @@
   };
 
   let log = load();
+  let shownDay = null;
 
-  const isToday = (ts) => new Date(ts).toDateString() === new Date().toDateString();
   const pad = (n) => String(n).padStart(2, '0');
+  const fmtTime = (ts) => { const d = new Date(ts); return pad(d.getHours()) + ':' + pad(d.getMinutes()); };
+  const fmtGap = (ms) => { const m = Math.floor(ms / 60000); return pad(Math.floor(m / 60)) + ':' + pad(m % 60); };
 
-  function render() {
+  // Ключ дня сдвинут на DAY_START_HOUR: всё, что раньше 5:00, относится к предыдущему дню.
+  const dayKey = (ts) => {
+    const d = new Date(ts - DAY_SHIFT_MS);
+    return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+  };
+
+  const dayLabel = (key, today) => {
+    const d = new Date(Math.floor(key / 10000), Math.floor(key / 100) % 100 - 1, key % 100);
+    const date = d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+    return (key === today ? 'Сегодня' : 'Вчера') + ', ' + date;
+  };
+
+  const el = (tag, cls, text) => {
+    const node = document.createElement(tag);
+    if (cls) node.className = cls;
+    if (text != null) node.textContent = text;
+    return node;
+  };
+
+  function renderHistory() {
+    const now = Date.now();
+    const today = dayKey(now);
+    const yesterday = dayKey(now - 24 * 60 * 60 * 1000);
+    shownDay = today;
+
+    // Группы по дням, новые записи сверху.
+    const groups = [];
+    for (let i = log.length - 1; i >= 0; i--) {
+      const k = dayKey(log[i]);
+      if (k < yesterday) break;
+      if (k > today) continue;
+      let g = groups[groups.length - 1];
+      if (!g || g.key !== k) { g = { key: k, rows: [] }; groups.push(g); }
+      g.rows.push(i);
+    }
+
+    $history.replaceChildren();
+    if (!groups.length) {
+      $history.append(el('div', 'empty', 'За сегодня и вчера записей нет'));
+      return;
+    }
+
+    for (const g of groups) {
+      const head = el('div', 'day');
+      head.append(el('span', '', dayLabel(g.key, today)), el('span', '', String(g.rows.length)));
+      $history.append(head);
+
+      for (const i of g.rows) {
+        const gap = i > 0 ? log[i] - log[i - 1] : null;
+        const row = el('div', 'row' + (gap == null ? '' : gap >= LIMIT_MS ? ' ok' : ' fast'));
+        const del = el('button', 'del', '×');
+        del.setAttribute('aria-label', 'удалить запись');
+        del.addEventListener('click', () => {
+          if (!confirm('Удалить запись ' + fmtTime(log[i]) + '?')) return;
+          log.splice(i, 1);
+          save(log);
+          render(true);
+        });
+        row.append(
+          el('span', 'dot'),
+          el('span', 'time', fmtTime(log[i])),
+          el('span', 'gap', gap == null ? 'первая' : 'пауза ' + fmtGap(gap)),
+          del
+        );
+        $history.append(row);
+      }
+    }
+  }
+
+  function render(historyChanged) {
     const last = log[log.length - 1];
     const elapsed = last ? Date.now() - last : Infinity;
     const calm = elapsed >= LIMIT_MS;
+    const today = dayKey(Date.now());
 
     document.body.className = calm ? 'green' : 'red';
-    $count.textContent = log.filter(isToday).length;
+    $count.textContent = log.filter((ts) => dayKey(ts) === today).length;
     $undo.hidden = !last;
 
     if (!last) {
@@ -159,25 +328,42 @@
       const mins = Math.floor(elapsed / 60000);
       $timer.textContent = pad(Math.floor(mins / 60)) + ':' + pad(mins % 60);
     }
+
+    if (historyChanged || shownDay !== today) renderHistory();
   }
 
   $btn.addEventListener('click', () => {
     log.push(Date.now());
     save(log);
-    render();
+    render(true);
   });
 
   $undo.addEventListener('click', () => {
+    const last = log[log.length - 1];
+    if (last == null) return;
+    if (!confirm('Удалить последнюю запись (' + fmtTime(last) + ')?')) return;
     log.pop();
     save(log);
-    render();
+    render(true);
+  });
+
+  // Сбрасывает service worker и его кэш, записи в localStorage остаются.
+  $reset.addEventListener('click', async () => {
+    if (!confirm('Обновить приложение? Записи сохранятся.')) return;
+    try {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map((r) => r.unregister()));
+      const keys = await caches.keys();
+      await Promise.all(keys.map((k) => caches.delete(k)));
+    } catch {}
+    location.reload();
   });
 
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 
-  document.addEventListener('visibilitychange', render);
+  document.addEventListener('visibilitychange', () => render());
   setInterval(render, 1000);
-  render();
+  render(true);
 </script>
 </body>
 </html>

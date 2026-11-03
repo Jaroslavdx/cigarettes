@@ -1,4 +1,4 @@
-const CACHE = 'cig-v1';
+const CACHE = 'cig-v2';
 const FILES = ['./', 'index.html', 'manifest.json', 'icon-180.png', 'icon-512.png'];
 
 self.addEventListener('install', (e) => {
