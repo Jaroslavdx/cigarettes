@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0b0b0c">
+<title>Размер экрана</title>
+<style>
+  :root {
+    --bg: #0b0b0c;
+    --text: #f4f4f5;
+    --muted: #71717a;
+    --line: #1c1c1f;
+    --green: #22c55e;
+    --blue: #3b82f6;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    position: relative;
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Rounded", system-ui, sans-serif;
+    padding: calc(env(safe-area-inset-top) + 20px) 24px calc(env(safe-area-inset-bottom) + 40px);
+    overscroll-behavior: none;
+  }
+  .wrap { max-width: 420px; margin: 0 auto; }
+  a.back { color: var(--muted); font-size: 14px; text-underline-offset: 3px; }
+  h1 { margin: 18px 0 4px; font-size: 26px; }
+  .note { margin: 0; font-size: 13px; line-height: 1.4; color: var(--muted); }
+  h2 {
+    margin: 24px 0 4px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+  .row {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--line);
+    font-size: 15px;
+    font-variant-numeric: tabular-nums;
+  }
+  .row span:first-child { color: var(--muted); flex: none; }
+  .row span:last-child { text-align: right; word-break: break-word; }
+  .copy {
+    display: block;
+    width: 100%;
+    margin-top: 26px;
+    padding: 14px;
+    border: 0;
+    border-radius: 12px;
+    background: var(--green);
+    color: #fff;
+    font: inherit;
+    font-size: 16px;
+    font-weight: 600;
+  }
+  pre {
+    margin: 12px 0 0;
+    padding: 12px;
+    border-radius: 10px;
+    background: #141416;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+    user-select: text;
+    -webkit-user-select: text;
+  }
+
+  /* Зелёная рамка: видимая область окна. Синяя линия: нижний край блока высотой 100svh. */
+  .frame {
+    position: fixed;
+    inset: 0;
+    border: 2px solid var(--green);
+    pointer-events: none;
+    z-index: 9;
+  }
+  .svh-box {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 100svh;
+    border-bottom: 3px solid var(--blue);
+    pointer-events: none;
+    z-index: 8;
+  }
+  .svh-box span {
+    position: absolute;
+    right: 8px;
+    bottom: 5px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: var(--blue);
+    font-size: 11px;
+    color: #fff;
+  }
+  .probe { position: fixed; left: 0; top: 0; width: 1px; visibility: hidden; pointer-events: none; }
+</style>
+</head>
+<body>
+  <div class="frame"></div>
+  <div class="svh-box"><span>конец 100svh</span></div>
+
+  <div class="wrap">
+    <a class="back" href="./">← назад к счётчику</a>
+    <h1>Размер экрана</h1>
+    <p class="note">Открывайте с иконки на домашнем экране, чтобы замеры были такими же, как в приложении. Зелёная рамка по краю экрана показывает видимую область, синяя линия ниже по странице показывает, где кончается блок высотой 100svh. Если их края совпадают, первый экран подогнан верно.</p>
+
+    <div id="out"></div>
+
+    <button class="copy" id="copy">Скопировать значения</button>
+    <pre id="text"></pre>
+  </div>
+
+<script>
+  const $out = document.getElementById('out');
+  const $text = document.getElementById('text');
+  const $copy = document.getElementById('copy');
+
+  const round = (n) => Math.round(n * 10) / 10;
+
+  function unitHeight(unit) {
+    if (!CSS.supports('height', '100' + unit)) return 'не поддерживается';
+    const p = document.createElement('div');
+    p.className = 'probe';
+    p.style.height = '100' + unit;
+    document.body.append(p);
+    const h = p.getBoundingClientRect().height;
+    p.remove();
+    return round(h) + ' pt';
+  }
+
+  function safeArea() {
+    const p = document.createElement('div');
+    p.className = 'probe';
+    p.style.padding = 'env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)';
+    document.body.append(p);
+    const s = getComputedStyle(p);
+    const v = [s.paddingTop, s.paddingRight, s.paddingBottom, s.paddingLeft].map((x) => round(parseFloat(x)) + ' pt');
+    p.remove();
+    return v;
+  }
+
+  function collect() {
+    const dpr = window.devicePixelRatio || 1;
+    const vv = window.visualViewport;
+    const standalone = navigator.standalone === true || matchMedia('(display-mode: standalone)').matches;
+    const sa = safeArea();
+    const orient = (screen.orientation && screen.orientation.type) || (innerWidth > innerHeight ? 'landscape' : 'portrait');
+
+    return [
+      { title: 'Режим', items: [
+        ['Запущено', standalone ? 'с иконки (приложение)' : 'во вкладке Safari'],
+        ['Ориентация', orient],
+      ] },
+      { title: 'Экран', items: [
+        ['Размер', screen.width + ' × ' + screen.height + ' pt'],
+        ['Плотность (DPR)', '×' + dpr],
+        ['Пикселей', Math.round(screen.width * dpr) + ' × ' + Math.round(screen.height * dpr)],
+      ] },
+      { title: 'Окно страницы', items: [
+        ['innerWidth × innerHeight', innerWidth + ' × ' + innerHeight + ' pt'],
+        ['clientWidth × clientHeight', document.documentElement.clientWidth + ' × ' + document.documentElement.clientHeight + ' pt'],
+        ['visualViewport', vv ? round(vv.width) + ' × ' + round(vv.height) + ' pt, масштаб ' + round(vv.scale) : 'нет'],
+      ] },
+      { title: 'Единицы высоты', items: [
+        ['100vh', unitHeight('vh')],
+        ['100svh', unitHeight('svh')],
+        ['100lvh', unitHeight('lvh')],
+        ['100dvh', unitHeight('dvh')],
+      ] },
+      { title: 'Безопасные зоны', items: [
+        ['Сверху', sa[0]],
+        ['Справа', sa[1]],
+        ['Снизу', sa[2]],
+        ['Слева', sa[3]],
+      ] },
+      { title: 'Браузер', items: [
+        ['User-Agent', navigator.userAgent],
+      ] },
+    ];
+  }
+
+  function render() {
+    const sections = collect();
+    $out.replaceChildren();
+    const lines = [];
+    for (const s of sections) {
+      const h = document.createElement('h2');
+      h.textContent = s.title;
+      $out.append(h);
+      lines.push('', s.title);
+      for (const [k, v] of s.items) {
+        const row = document.createElement('div');
+        row.className = 'row';
+        const a = document.createElement('span');
+        const b = document.createElement('span');
+        a.textContent = k;
+        b.textContent = v;
+        row.append(a, b);
+        $out.append(row);
+        lines.push(k + ': ' + v);
+      }
+    }
+    $text.textContent = lines.join('\n').trim();
+  }
+
+  $copy.addEventListener('click', async () => {
+    const done = (t) => { $copy.textContent = t; setTimeout(() => { $copy.textContent = 'Скопировать значения'; }, 1500); };
+    try {
+      await navigator.clipboard.writeText($text.textContent);
+      done('Скопировано');
+    } catch {
+      const r = document.createRange();
+      r.selectNodeContents($text);
+      const sel = getSelection();
+      sel.removeAllRanges();
+      sel.addRange(r);
+      done('Выделено, скопируйте вручную');
+    }
+  });
+
+  addEventListener('resize', render);
+  addEventListener('orientationchange', () => setTimeout(render, 300));
+  if (window.visualViewport) visualViewport.addEventListener('resize', render);
+  render();
+</script>
+</body>
+</html>

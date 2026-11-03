@@ -177,9 +177,14 @@
     padding: 6px 8px;
   }
 
+  .tools {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 28px;
+  }
   .reset {
-    display: block;
-    margin: 28px auto 0;
+    display: inline-block;
     background: none;
     border: 0;
     color: var(--muted);
@@ -215,7 +220,10 @@
   <div class="history">
     <p class="history-note">Сегодня и вчера. Пауза считается от предыдущей сигареты: <span style="color:var(--green)">2 ч и больше</span>, <span style="color:var(--red)">меньше 2 ч</span>. Новый день начинается в 5:00.</p>
     <div id="history"></div>
-    <button class="reset" id="reset">обновить приложение</button>
+    <div class="tools">
+      <button class="reset" id="reset">обновить приложение</button>
+      <a class="reset" href="screen.html">размер экрана</a>
+    </div>
   </div>
 
 <script>
