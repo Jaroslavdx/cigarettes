@@ -30,14 +30,17 @@
     background: var(--bg);
     color: var(--text);
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Rounded", system-ui, sans-serif;
-    padding: env(safe-area-inset-top) 24px env(safe-area-inset-bottom);
+    padding: 0 24px;
     user-select: none;
     -webkit-user-select: none;
     overscroll-behavior: none;
   }
 
+  /* Первый экран занимает ровно весь экран: история начинается только после прокрутки. */
   .screen {
-    min-height: calc(100svh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    min-height: 100vh;
+    min-height: 100svh;
+    padding: env(safe-area-inset-top) 0 calc(env(safe-area-inset-bottom) + 10px);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -85,7 +88,7 @@
   .btn:active { transform: scale(.94); }
 
   .bottom {
-    margin-bottom: 18px;
+    margin-bottom: 12px;
     text-align: center;
   }
   .timer {
@@ -113,7 +116,6 @@
   }
   .undo[hidden] { display: inline-block; visibility: hidden; }
   .more {
-    margin-bottom: 14px;
     font-size: 13px;
     color: var(--muted);
   }
@@ -122,7 +124,7 @@
     width: 100%;
     max-width: 420px;
     margin: 0 auto;
-    padding-bottom: 28px;
+    padding: 28px 0 calc(28px + env(safe-area-inset-bottom));
   }
   .history-note {
     margin: 0;
